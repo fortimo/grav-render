@@ -3,10 +3,32 @@ FROM php:8.1-apache
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
 
-# Install required PHP extensions
-RUN docker-php-ext-install opcache
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    libicu-dev \
+    libyaml-dev \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set document root to Grav's web root
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        gd \
+        zip \
+        intl \
+        exif \
+        opcache
+
+# Install YAML via PECL
+RUN pecl install yaml \
+    && docker-php-ext-enable yaml
+
+# Set document root
 ENV APACHE_DOCUMENT_ROOT=/var/www/html
 
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
@@ -16,7 +38,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 # Copy Grav files
 COPY . /var/www/html
 
-# Set permissions
+# Permissions
 RUN chown -R www-data:www-data /var/www/html \
     && find /var/www/html -type d -exec chmod 755 {} \; \
     && find /var/www/html -type f -exec chmod 644 {} \;
